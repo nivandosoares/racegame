@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Highway Racer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #606060, #303030);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Arial Black', sans-serif;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 600px;
+            height: 800px;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+
+        #road {
+            position: absolute;
+            width: 300px;
+            height: 200%;
+            left: 150px;
+            background: 
+                repeating-linear-gradient(
+                    to bottom,
+                    #555 0 50px,
+                    #f7f6f3 50px 55px,
+                    #333 55px 105px
+                ),
+                linear-gradient(
+                    to right,
+                    #808080 0 2px,
+                    transparent 2px 298px,
+                    #808080 298px 300px
+                ),
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0 45px,
+                    #ffffff 45px 50px,
+                    transparent 50px 105px
+                );
+            background-size: 100% 105px;
+            background-color: #444;
+        }
+
+        .line {
+            position: absolute;
+            width: 20px;
+            height: 80px;
+            background: white;
+            left: 190px;
+        }
+        .scenery {
+            position: absolute;
+            width: 150px;
+            height: 100%;
+            top: 0;
+        }
+
+        #leftScenery {
+            left: 0;
+            background: linear-gradient(to right, 
+                rgba(0,50,0,0.8) 0 80%,
+                transparent 80% 100%
+            );
+        }
+
+        #rightScenery {
+            right: 0;
+            background: linear-gradient(to left, 
+                rgba(0,50,0,0.8) 0 80%,
+                transparent 80% 100%
+            );
+        }
+
+        .roadside-item {
+            position: absolute;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .tree {
+            width: 40px;
+            height: 80px;
+            background-image: url('tree.png');
+            animation: sway 3s ease-in-out infinite;
+        }
+
+        .sign {
+            width: 30px;
+            height: 40px;
+            background-image: url('sign.png');
+        }
+
+        @keyframes sway {
+            0%, 100% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+        }
+
+        .car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            transition: transform 0.1s;
+        }
+
+        #playerCar {
+            background-image: url('player_car.png');
+            filter: drop-shadow(0 0 10px cyan);
+            bottom: 50px;
+            z-index: 3;
+        }
+
+        .obstacle {
+            background-image: url('obstacle_car.png');
+            z-index: 2;
+        }
+
+        .powerup {
+            width: 30px;
+            height: 30px;
+            background-image: url('coin.png');
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            padding: 10px;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 2px 2px 2px black;
+            z-index: 4;
+        }
+
+        #gameOver {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background: #00ff00;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="leftScenery" class="scenery"></div>
+        <div id="road"></div>
+        <div id="rightScenery" class="scenery"></div>
+        <div id="hud">
+            <div>SPEED: <span id="speed">0</span> MPH</div>
+            <div>SCORE: <span id="score">0</span></div>
+        </div>
+        <div id="playerCar" class="car"></div>
+        <div id="gameOver">
+            <h2>GAME OVER!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const config = {
+            gameWidth: 600,
+            roadWidth: 300,
+            playerSpeed: 7,
+            baseSpeed: 3,
+            maxSpeed: 25,
+            obstacleInterval: 1500,
+            scenerySpawnRate: 100,
+            powerupChance: 0.3
+        };
+
+        let gameState = {
+            roadPosition: 0,
+            speed: config.baseSpeed,
+            score: 0,
+            playerX: config.gameWidth / 2,
+            obstacles: [],
+            powerups: [],
+            roadsideItems: [],
+            isGameActive: true
+        };
+
+        const playerCar = document.getElementById('playerCar');
+        const road = document.getElementById('road');
+        const speedDisplay = document.getElementById('speed');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverScreen = document.getElementById('gameOver');
+        const finalScoreDisplay = document.getElementById('finalScore');
+
+        function updateRoad() {
+            gameState.roadPosition += gameState.speed;
+            road.style.backgroundPosition = `0 ${gameState.roadPosition}px`;
+            if(gameState.isGameActive) requestAnimationFrame(updateRoad);
+        }
+
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.className = Math.random() < config.powerupChance ? 'powerup car' : 'obstacle car';
+            const roadLeft = (config.gameWidth - config.roadWidth) / 2;
+            obstacle.style.left = `${roadLeft + Math.random() * (config.roadWidth - 40)}px`;
+            obstacle.style.top = '-100px';
+            gameContainer.appendChild(obstacle);
+            gameState[obstacle.className.includes('powerup') ? 'powerups' : 'obstacles'].push(obstacle);
+        }
+
+        function spawnScenery() {
+            const types = ['tree', 'sign'];
+            const sides = ['left', 'right'];
+            
+            sides.forEach(side => {
+                if(Math.random() > 0.7) {
+                    const item = document.createElement('div');
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    item.className = `roadside-item ${type}`;
+                    
+                    const xPosition = side === 'left' 
+                        ? Math.random() * 100 
+                        : config.gameWidth - Math.random() * 100 - 40;
+                    
+                    item.style.left = `${xPosition}px`;
+                    item.style.top = '-100px';
+                    gameContainer.appendChild(item);
+                    gameState.roadsideItems.push(item);
+                }
+            });
+        }
+
+        function checkCollision(a, b) {
+            const rectA = a.getBoundingClientRect();
+            const rectB = b.getBoundingClientRect();
+            
+            const roadLeft = (config.gameWidth - config.roadWidth) / 2;
+            const roadRight = roadLeft + config.roadWidth;
+            
+            if(rectB.left < roadLeft || rectB.right > roadRight) return false;
+            
+            return !(rectA.right < rectB.left || 
+                    rectA.left > rectB.right || 
+                    rectA.bottom < rectB.top || 
+                    rectA.top > rectB.bottom);
+        }
+
+        function updateEntities() {
+            gameState.obstacles.forEach((obstacle, index) => {
+                const top = parseFloat(obstacle.style.top) + gameState.speed;
+                obstacle.style.top = `${top}px`;
+                
+                if(top > 800) {
+                    obstacle.remove();
+                    gameState.obstacles.splice(index, 1);
+                } else if(checkCollision(playerCar, obstacle)) {
+                    endGame();
+                }
+            });
+
+            gameState.powerups.forEach((powerup, index) => {
+                powerup.style.top = `${parseFloat(powerup.style.top) + gameState.speed}px`;
+                
+                if(checkCollision(playerCar, powerup)) {
+                    gameState.score += 500;
+                    powerup.remove();
+                    gameState.powerups.splice(index, 1);
+                }
+            });
+
+            gameState.roadsideItems.forEach((item, index) => {
+                const top = parseFloat(item.style.top) + gameState.speed;
+                item.style.top = `${top}px`;
+                
+                if(top > 800) {
+                    item.remove();
+                    gameState.roadsideItems.splice(index, 1);
+                }
+            });
+        }
+
+        function updateGame() {
+            if(!gameState.isGameActive) return;
+
+            gameState.score += Math.floor(gameState.speed);
+            speedDisplay.textContent = Math.floor(gameState.speed * 5);
+            scoreDisplay.textContent = gameState.score;
+
+            gameState.speed = Math.min(config.maxSpeed, 
+                config.baseSpeed + (gameState.score / 1000));
+
+            updateEntities();
+            requestAnimationFrame(updateGame);
+        }
+
+        function endGame() {
+            gameState.isGameActive = false;
+            gameOverScreen.style.display = 'flex';
+            finalScoreDisplay.textContent = gameState.score;
+        }
+
+        function restartGame() {
+            gameState.obstacles.forEach(o => o.remove());
+            gameState.powerups.forEach(p => p.remove());
+            gameState.roadsideItems.forEach(i => i.remove());
+            gameOverScreen.style.display = 'none';
+            gameState = {
+                roadPosition: 0,
+                speed: config.baseSpeed,
+                score: 0,
+                playerX: config.gameWidth / 2,
+                obstacles: [],
+                powerups: [],
+                roadsideItems: [],
+                isGameActive: true
+            };
+            playerCar.style.left = `${gameState.playerX}px`;
+            updateRoad();
+            updateGame();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(!gameState.isGameActive) return;
+            
+            const roadLeft = (config.gameWidth - config.roadWidth) / 2;
+            const roadRight = roadLeft + config.roadWidth;
+            
+            if(e.key === 'ArrowLeft') {
+                gameState.playerX = Math.max(roadLeft + 30, gameState.playerX - config.playerSpeed);
+            }
+            if(e.key === 'ArrowRight') {
+                gameState.playerX = Math.min(roadRight - 30, gameState.playerX + config.playerSpeed);
+            }
+            playerCar.style.left = `${gameState.playerX}px`;
+        });
+
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        
+        document.addEventListener('touchmove', (e) => {
+            if(!gameState.isGameActive) return;
+            const touchX = e.touches[0].clientX;
+            const delta = touchX - touchStartX;
+            const roadLeft = (config.gameWidth - config.roadWidth) / 2;
+            const roadRight = roadLeft + config.roadWidth;
+            
+            gameState.playerX = Math.max(roadLeft + 30, 
+                Math.min(roadRight - 30, gameState.playerX + delta * 0.5));
+            playerCar.style.left = `${gameState.playerX}px`;
+            touchStartX = touchX;
+            e.preventDefault();
+        }, { passive: false });
+
+        setInterval(createObstacle, config.obstacleInterval);
+        setInterval(spawnScenery, config.scenerySpawnRate);
+        updateRoad();
+        updateGame();
+    </script>
+</body>
+</html>

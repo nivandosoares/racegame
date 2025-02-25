@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Top Gear Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+        }
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            margin: 20px auto;
+        }
+        #road {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #555;
+            overflow: hidden;
+        }
+        .line {
+            position: absolute;
+            width: 20px;
+            height: 80px;
+            background: white;
+            left: 190px;
+        }
+        #playerCar {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background: red;
+            bottom: 20px;
+            left: 180px;
+            border-radius: 5px;
+        }
+        .obstacle {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background: blue;
+            border-radius: 5px;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial;
+            font-size: 20px;
+        }
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial;
+            font-size: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="road"></div>
+        <div id="playerCar"></div>
+        <div id="score">Score: 0</div>
+        <div id="gameOver">
+            Game Over!<br>
+            <button onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let playerX = 180;
+        let score = 0;
+        let gameActive = true;
+        let obstacles = [];
+        let roadLines = [];
+        
+        function createRoadLines() {
+            for(let i = 0; i < 5; i++) {
+                let line = document.createElement('div');
+                line.className = 'line';
+                line.style.top = (i * 150) + 'px';
+                roadLines.push(line);
+                document.getElementById('road').appendChild(line);
+            }
+        }
+
+        function updateRoad() {
+            roadLines.forEach(line => {
+                let top = parseInt(line.style.top) || 0;
+                top += 5;
+                if(top > 600) top = -80;
+                line.style.top = top + 'px';
+            });
+        }
+
+        function movePlayer(direction) {
+            if(!gameActive) return;
+            if(direction === 'left' && playerX > 40) playerX -= 40;
+            if(direction === 'right' && playerX < 320) playerX += 40;
+            document.getElementById('playerCar').style.left = playerX + 'px';
+        }
+
+        function createObstacle() {
+            if(!gameActive) return;
+            let obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            obstacle.style.left = (Math.random() * 320 + 40) + 'px';
+            obstacle.style.top = '-70px';
+            obstacles.push(obstacle);
+            document.getElementById('road').appendChild(obstacle);
+        }
+
+        function updateObstacles() {
+            if(!gameActive) return;
+            obstacles.forEach((obstacle, index) => {
+                let top = parseInt(obstacle.style.top);
+                top += 5;
+                obstacle.style.top = top + 'px';
+
+                // Check collision
+                if(top + 70 > 520 && top < 600) {
+                    let obstacleX = parseInt(obstacle.style.left);
+                    if(Math.abs(obstacleX - playerX) < 40) {
+                        gameOver();
+                    }
+                }
+
+                if(top > 600) {
+                    obstacle.remove();
+                    obstacles.splice(index, 1);
+                    score += 10;
+                    document.getElementById('score').textContent = 'Score: ' + score;
+                }
+            });
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function startGame() {
+            // Reset game state
+            playerX = 180;
+            score = 0;
+            gameActive = true;
+            obstacles.forEach(obstacle => obstacle.remove());
+            obstacles = [];
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('playerCar').style.left = '180px';
+            document.getElementById('score').textContent = 'Score: 0';
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowLeft') movePlayer('left');
+            if(e.key === 'ArrowRight') movePlayer('right');
+        });
+
+        // Initialize game
+        createRoadLines();
+        setInterval(updateRoad, 50);
+        setInterval(createObstacle, 2000);
+        setInterval(updateObstacles, 50);
+
+        // Start game
+        startGame();
+    </script>
+</body>
+</html>
