@@ -1,5 +1,11 @@
 # Test Drive II - Mode 7 Remake Prototype
 
+Jogo de corrida em estrada feito com JavaScript e HTML Canvas.
+
+**Arquivos principais**
+
+- [index.html](<index.html>)
+
 A playable first-person racing prototype built from this repo as a foundation.
 
 ## What this delivers now
